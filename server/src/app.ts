@@ -12,7 +12,9 @@ export function buildApp(): FastifyInstance {
 
   // Plugins
   app.register(helmet);
-  const corsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true;
+  const corsOrigins = process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim().replace(/\/$/, ''))
+    : true;
   app.register(cors, {
     origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
