@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  studentProfile StudentProfile?
+}
+
+model StudentProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  name      String
+  avatarUrl String?
+  trackId   String?
+  cohortId  String?
+  startDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id])
+  track            Track?            @relation(fields: [trackId], references: [id])
+  cohort           Cohort?           @relation(fields: [cohortId], references: [id])
+  enrollments      Enrollment[]
+  submissions      Submission[]
+  activities       Activity[]
+  badges           StudentBadge[]
+  streakFreezes    StreakFreeze[]
+}
+
+model Track {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String
+  icon        String
+  color       String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  students    StudentProfile[]
+  challenges  Challenge[]
+  enrollments Enrollment[]
+}
+
+model Cohort {
+  id        String   @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  students StudentProfile[]
+}
+
+model Challenge {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  totalDays   Int      @default(60)
+  trackId     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  track       Track          @relation(fields: [trackId], references: [id])
+  days        ChallengeDay[]
+  enrollments Enrollment[]
+}
+
+model ChallengeDay {
+  id                 String   @id @default(uuid())
+  challengeId        String
+  dayNumber          Int
+  title              String
+  description        String
+  acceptanceCriteria String
+  difficulty         String
+  estimatedMinutes   Int
+  resourceLinks      String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  challenge   Challenge    @relation(fields: [challengeId], references: [id])
+  submissions Submission[]
+  activities  Activity[]
+
+  @@unique([challengeId, dayNumber])
+}
+
+model Enrollment {
+  id            String   @id @default(uuid())
+  studentId     String
+  challengeId   String
+  trackId       String
+  startDate     DateTime @default(now())
+  currentDay    Int      @default(1)
+  currentStreak Int      @default(0)
+  bestStreak    Int      @default(0)
+  status        String   @default("active") // active, completed, paused, abandoned
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+  challenge Challenge      @relation(fields: [challengeId], references: [id])
+  track     Track          @relation(fields: [trackId], references: [id])
+
+  @@unique([studentId, challengeId])
+}
+
+model Submission {
+  id             String   @id @default(uuid())
+  studentId      String
+  challengeDayId String
+  githubUrl      String
+  linkedinUrl    String
+  note           String?
+  submittedAt    DateTime @default(now())
+  status         String   @default("submitted") // submitted, late, edited
+  isLate         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  student      StudentProfile @relation(fields: [studentId], references: [id])
+  challengeDay ChallengeDay   @relation(fields: [challengeDayId], references: [id])
+
+  @@unique([studentId, challengeDayId])
+  @@index([studentId])
+  @@index([challengeDayId])
+  @@index([submittedAt])
+}
+
+model Activity {
+  id             String   @id @default(uuid())
+  studentId      String
+  challengeDayId String
+  status         String   // completed, missed, late, today
+  date           DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  student      StudentProfile @relation(fields: [studentId], references: [id])
+  challengeDay ChallengeDay   @relation(fields: [challengeDayId], references: [id])
+
+  @@unique([studentId, challengeDayId])
+  @@index([studentId])
+}
+
+model Badge {
+  id               String   @id @default(uuid())
+  name             String
+  description      String
+  icon             String
+  requirementType  String   // STREAK, COMPLETION
+  requirementValue Int
+  createdAt        DateTime @default(now())
+
+  studentBadges StudentBadge[]
+}
+
+model StudentBadge {
+  id        String   @id @default(uuid())
+  studentId String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+
+  student StudentProfile @relation(fields: [studentId], references: [id])
+  badge   Badge          @relation(fields: [badgeId], references: [id])
+
+  @@unique([studentId, badgeId])
+}
+
+model StreakFreeze {
+  id        String    @id @default(uuid())
+  studentId String
+  earnedAt  DateTime  @default(now())
+  usedAt    DateTime?
+  status    String    @default("available") // available, used
+
+  student StudentProfile @relation(fields: [studentId], references: [id])
+}
